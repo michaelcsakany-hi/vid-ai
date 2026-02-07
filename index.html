@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>TensorFlow.js Graph Disconnected Fix</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    button { padding: 10px 20px; margin: 10px; font-size: 16px; cursor: pointer; }
+    #output { margin-top: 20px; padding: 10px; border: 1px solid #ccc; background: #f9f9f9; min-height: 100px; white-space: pre-wrap; }
+    .error { color: red; }
+    .success { color: green; }
+    .info { color: blue; }
+  </style>
+</head>
+<body>
+  <h1>Fix for "Graph disconnected" Error</h1>
+  <p>
+    The error <code>Graph disconnected: cannot obtain value for tensor [object Object] at layer "input4"</code>
+    occurs when an input layer is used in the graph but not listed in the model's inputs.
+  </p>
+
+  <button onclick="runBuggy()">Run Buggy Code (Trigger Error)</button>
+  <button onclick="runFixed()">Run Fixed Code (Success)</button>
+
+  <div id="output">Click a button above...</div>
+
+  <script>
+    function log(msg, type = 'normal') {
+      const output = document.getElementById('output');
+      const div = document.createElement('div');
+      div.textContent = msg;
+      if (type === 'error') div.className = 'error';
+      if (type === 'success') div.className = 'success';
+      if (type === 'info') div.className = 'info';
+      output.appendChild(div);
+      console.log(msg);
+    }
+
+    function clearLog() {
+      document.getElementById('output').innerHTML = '';
+    }
+
+    function createModel(includeInput4) {
+      // Define symbolic input tensors
+      const input1 = tf.input({shape: [10], name: 'input1'});
+      const input2 = tf.input({shape: [10], name: 'input2'});
+      const input3 = tf.input({shape: [10], name: 'input3'});
+      const input4 = tf.input({shape: [10], name: 'input4'}); // Used in graph below
+
+      // Construct the computation graph
+      // Note: We use input4 here.
+      const dense1 = tf.layers.dense({units: 32}).apply(input4);
+      const output = tf.layers.dense({units: 1}).apply(dense1);
+
+      // Define the list of inputs for the model
+      const inputs = [input1, input2, input3];
+
+      // THE FIX: We must include input4 in the inputs list because it is used in the graph.
+      if (includeInput4) {
+        inputs.push(input4);
+      }
+
+      // Create the model
+      return tf.model({inputs: inputs, outputs: output});
+    }
+
+    async function runBuggy() {
+      clearLog();
+      log('Attempting to create model omitting input4...', 'info');
+      try {
+        // Buggy: We pass includeInput4 = false
+        const model = createModel(false);
+        log('Unexpected success! The model should have failed.', 'error');
+      } catch (e) {
+        log('Caught expected error:', 'error');
+        log(e.message, 'error');
+        log('Explanation: The error "Graph disconnected" occurs because "input4" was used to compute the output but was not listed in the inputs array.', 'info');
+      }
+    }
+
+    async function runFixed() {
+      clearLog();
+      log('Attempting to create model including input4...', 'info');
+      try {
+        // Fixed: We pass includeInput4 = true
+        const model = createModel(true);
+        log('Success! Model created.', 'success');
+
+        model.summary();
+        log('Model summary printed to console (F12).', 'info');
+
+        // Verify prediction works with dummy data
+        const prediction = model.predict([
+          tf.zeros([1, 10]),
+          tf.zeros([1, 10]),
+          tf.zeros([1, 10]),
+          tf.zeros([1, 10])
+        ]);
+        prediction.print();
+        log('Prediction successful.', 'success');
+
+      } catch (e) {
+        log('Error: ' + e.message, 'error');
+      }
+    }
+  </script>
+</body>
+</html>

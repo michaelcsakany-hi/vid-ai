@@ -6,13 +6,19 @@ This repository contains a reproduction and fix for the "Graph disconnected" err
 
 The error `Graph disconnected: cannot obtain value for tensor [object Object] at layer "input4"` occurs when an input tensor is used in the model's computation graph but is not included in the `inputs` array passed to `tf.model()`.
 
-## The Fix
+## Verify in Browser (Recommended)
 
-To fix this, ensure that all input tensors used to compute the output are included in the `inputs` array.
+Since the error seems to be occurring in a browser environment, I have created a standalone HTML file to demonstrate the fix.
 
-See `model.js` for the corrected code.
+1. Open `index.html` in your web browser.
+2. Click **"Run Buggy Code"** to reproduce the error.
+3. Click **"Run Fixed Code"** to see the solution.
 
-## Running the Verification
+The fix involves ensuring that all input tensors used in the graph (like `input4`) are explicitly included in the `inputs` list when creating the model.
+
+## Verify in Node.js
+
+If you have Node.js installed, you can also run the server-side verification:
 
 1. Install dependencies:
    ```bash
