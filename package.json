@@ -1,0 +1,24 @@
+{
+  "name": "app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/michaelcsakany-hi/vid-ai.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/michaelcsakany-hi/vid-ai/issues"
+  },
+  "homepage": "https://github.com/michaelcsakany-hi/vid-ai#readme",
+  "dependencies": {
+    "@tensorflow/tfjs-node": "^4.22.0"
+  }
+}
