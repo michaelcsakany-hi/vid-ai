@@ -5,9 +5,10 @@
   <title>TensorFlow.js Graph Disconnected Fix</title>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    button { padding: 10px 20px; margin: 10px; font-size: 16px; cursor: pointer; }
-    #output { margin-top: 20px; padding: 10px; border: 1px solid #ccc; background: #f9f9f9; min-height: 100px; white-space: pre-wrap; }
+    body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+    button { padding: 10px 20px; margin: 10px 5px; font-size: 16px; cursor: pointer; }
+    #video-container { margin: 20px 0; border: 1px solid #ccc; background: #000; width: 320px; height: 240px; display: flex; align-items: center; justify-content: center; color: white; }
+    #output { margin-top: 20px; padding: 10px; border: 1px solid #ccc; background: #f9f9f9; min-height: 200px; white-space: pre-wrap; font-family: monospace; overflow-x: auto; }
     .error { color: red; }
     .success { color: green; }
     .info { color: blue; }
@@ -20,25 +21,62 @@
     occurs when an input layer is used in the graph but not listed in the model's inputs.
   </p>
 
+  <div id="video-container">
+    <video id="webcam" autoplay playsinline width="320" height="240"></video>
+  </div>
+
   <button onclick="runBuggy()">Run Buggy Code (Trigger Error)</button>
   <button onclick="runFixed()">Run Fixed Code (Success)</button>
+  <button onclick="startCamera()">Start Camera</button>
 
-  <div id="output">Click a button above...</div>
+  <div id="output">Click a button above... Output will appear here instead of console.</div>
 
   <script>
-    function log(msg, type = 'normal') {
+    // Redirect console.log to the page
+    const originalLog = console.log;
+    const originalError = console.error;
+    const originalWarn = console.warn;
+
+    function logToPage(msg, type = 'normal') {
       const output = document.getElementById('output');
       const div = document.createElement('div');
-      div.textContent = msg;
+      div.textContent = typeof msg === 'object' ? JSON.stringify(msg, null, 2) : msg;
       if (type === 'error') div.className = 'error';
       if (type === 'success') div.className = 'success';
       if (type === 'info') div.className = 'info';
       output.appendChild(div);
-      console.log(msg);
+      output.scrollTop = output.scrollHeight; // Auto-scroll to bottom
     }
+
+    console.log = function(...args) {
+      originalLog.apply(console, args);
+      logToPage(args.join(' '));
+    };
+
+    console.error = function(...args) {
+      originalError.apply(console, args);
+      logToPage(args.join(' '), 'error');
+    };
+
+    console.warn = function(...args) {
+      originalWarn.apply(console, args);
+      logToPage(args.join(' '), 'info');
+    };
 
     function clearLog() {
       document.getElementById('output').innerHTML = '';
+    }
+
+    async function startCamera() {
+      const video = document.getElementById('webcam');
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        logToPage('Camera started successfully.', 'success');
+      } catch (e) {
+        logToPage('Error accessing camera: ' + e.message, 'error');
+        logToPage('Note: Camera access requires HTTPS or localhost.', 'info');
+      }
     }
 
     function createModel(includeInput4) {
@@ -67,28 +105,28 @@
 
     async function runBuggy() {
       clearLog();
-      log('Attempting to create model omitting input4...', 'info');
+      logToPage('Attempting to create model omitting input4...', 'info');
       try {
         // Buggy: We pass includeInput4 = false
         const model = createModel(false);
-        log('Unexpected success! The model should have failed.', 'error');
+        logToPage('Unexpected success! The model should have failed.', 'error');
       } catch (e) {
-        log('Caught expected error:', 'error');
-        log(e.message, 'error');
-        log('Explanation: The error "Graph disconnected" occurs because "input4" was used to compute the output but was not listed in the inputs array.', 'info');
+        logToPage('Caught expected error:', 'error');
+        logToPage(e.message, 'error');
+        logToPage('Explanation: The error "Graph disconnected" occurs because "input4" was used to compute the output but was not listed in the inputs array.', 'info');
       }
     }
 
     async function runFixed() {
       clearLog();
-      log('Attempting to create model including input4...', 'info');
+      logToPage('Attempting to create model including input4...', 'info');
       try {
         // Fixed: We pass includeInput4 = true
         const model = createModel(true);
-        log('Success! Model created.', 'success');
+        logToPage('Success! Model created.', 'success');
 
-        model.summary();
-        log('Model summary printed to console (F12).', 'info');
+        // Capture model summary
+        model.summary(undefined, [0.5, 0.5, 0.5, 0.5], (line) => logToPage(line));
 
         // Verify prediction works with dummy data
         const prediction = model.predict([
@@ -97,11 +135,13 @@
           tf.zeros([1, 10]),
           tf.zeros([1, 10])
         ]);
-        prediction.print();
-        log('Prediction successful.', 'success');
+
+        // Convert tensor to array to display
+        const result = await prediction.array();
+        logToPage('Prediction successful: ' + JSON.stringify(result), 'success');
 
       } catch (e) {
-        log('Error: ' + e.message, 'error');
+        logToPage('Error: ' + e.message, 'error');
       }
     }
   </script>
